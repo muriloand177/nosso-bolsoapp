@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nosso Bolso Nossa Grana - Nuvem</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+  </style>
+</head>
+<body class="bg-zinc-700 text-zinc-100 min-h-screen pb-28 antialiased">
+
+  <!-- TELA DE AUTH (LOGIN / CADASTRO POR USUÁRIO) -->
+  <div id="telaAuth" class="fixed inset-0 bg-zinc-800 z-50 flex items-center justify-center p-6">
+    <div class="bg-zinc-900 border border-zinc-600 w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-5">
+      <div class="text-center space-y-1">
+        <div class="h-12 w-12 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-500 p-0.5 mx-auto flex items-center justify-center shadow-lg">
+          <div class="h-full w-full bg-zinc-900 rounded-[14px] flex items-center justify-center">
+            <span class="text-xl">🏡</span>
+          </div>
+        </div>
+        <h1 class="text-xl font-extrabold text-white pt-2">Finanças Família</h1>
+        <p class="text-xs text-zinc-400">Entre com seu nome de usuário e senha</p>
+      </div>
+
+      <form onsubmit="handleAuth(event)" class="space-y-4">
+        <div>
+          <label class="block text-[11px] font-bold text-zinc-300 uppercase mb-1.5">Usuário</label>
+          <input type="text" id="authUsuario" placeholder="Ex: murilo" required class="w-full bg-zinc-800 border border-zinc-600 text-white rounded-xl p-3.5 text-sm focus:outline-none focus:border-teal-500 transition">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-zinc-300 uppercase mb-1.5">Senha</label>
+          <input type="password" id="authSenha" placeholder="••••••••" required class="w-full bg-zinc-800 border border-zinc-600 text-white rounded-xl p-3.5 text-sm focus:outline-none focus:border-teal-500 transition">
+        </div>
+
+        <div class="space-y-2 pt-2">
+          <button type="submit" id="btnEntrar" onclick="modoAuth='login'" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold py-3.5 rounded-xl text-xs shadow-md hover:from-emerald-600 hover:to-teal-700 transition">
+            Entrar
+          </button>
+          <button type="submit" id="btnCadastrar" onclick="modoAuth='signup'" class="w-full bg-zinc-800 border border-zinc-600 text-zinc-300 font-bold py-3.5 rounded-xl text-xs hover:bg-zinc-700 transition">
+            Criar Novo Usuário
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CONTAINER DO APP -->
+  <div id="appContainer" class="hidden">
+    <header class="bg-zinc-800/95 backdrop-blur-md border-b border-zinc-600/80 px-6 py-4 sticky top-0 z-30">
+      <div class="flex justify-between items-center max-w-md mx-auto">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-500 p-0.5 flex items-center justify-center shadow-lg shadow-zinc-900/40">
+            <div class="h-full w-full bg-zinc-900 rounded-[10px] flex items-center justify-center">
+              <span class="text-base font-black text-white">🏡</span>
+            </div>
+          </div>
+          <div>
+            <h1 class="text-lg font-extrabold tracking-tight text-white flex items-center gap-1">
+              Finanças<span class="text-xs font-bold uppercase tracking-wider text-teal-400 bg-teal-950/80 border border-teal-700/50 px-2 py-0.5 rounded-md ml-1">Família</span>
+            </h1>
+            <p id="userBadge" class="text-[10px] font-medium text-zinc-300 truncate max-w-[150px]"></p>
+          </div>
+        </div>
+        <button onclick="fazerLogout()" class="text-xs font-semibold text-zinc-300 hover:text-rose-300 bg-zinc-700/80 hover:bg-zinc-600 border border-zinc-500/50 px-3.5 py-1.5 rounded-xl transition">
+          Sair
+        </button>
+      </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-6 py-5 space-y-5">
+      <!-- ABA 1: RESUMO -->
+      <div id="abaResumo" class="space-y-5">
+        <div class="grid grid-cols-2 gap-3.5">
+          <div class="bg-zinc-800/90 p-5 rounded-2xl border border-zinc-600/70 shadow-md flex flex-col justify-between min-h-[105px]">
+            <p class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider leading-tight">Renda Total</p>
+            <p id="totalRenda" class="text-lg sm:text-xl font-extrabold text-emerald-400 mt-2 truncate">R$ 0,00</p>
+          </div>
+          <div class="bg-zinc-800/90 p-5 rounded-2xl border border-zinc-600/70 shadow-md flex flex-col justify-between min-h-[105px]">
+            <p class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider leading-tight">Total Gastos</p>
+            <p id="totalGastos" class="text-lg sm:text-xl font-extrabold text-rose-400 mt-2 truncate">R$ 0,00</p>
+          </div>
+        </div>
+
+        <div class="bg-zinc-800/90 p-5 rounded-2xl border border-zinc-600/70 shadow-md flex justify-between items-center">
+          <div>
+            <p class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider">Sobra no Mês</p>
+            <p id="saldoSobra" class="text-2xl font-black text-white mt-0.5">R$ 0,00</p>
+          </div>
+          <span id="badgeStatusSaldo" class="text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full">Equilibrado</span>
+        </div>
+
+        <section class="bg-zinc-800/90 p-5 rounded-2xl border border-zinc-600/70 shadow-md space-y-3">
+          <div class="flex justify-between items-center border-b border-zinc-700/60 pb-3">
+            <h2 class="text-xs font-bold text-zinc-300 tracking-wider uppercase flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-teal-400"></span> Divisão das Contas
+            </h2>
+            <select id="tipoDivisao" onchange="renderizarResumo()" class="bg-zinc-900 border border-zinc-600 text-xs text-zinc-200 rounded-lg px-2 py-1 focus:outline-none">
+              <option value="proporcional">Proporcional à Renda</option>
+              <option value="igual">Igual (50/50)</option>
+            </select>
+          </div>
+          <div id="listaDivisao" class="space-y-3"></div>
+        </section>
+
+        <section class="bg-zinc-800/90 p-5 rounded-2xl border border-zinc-600/70 shadow-md">
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-xs font-bold text-zinc-300 tracking-wider uppercase flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-amber-400"></span> Próximos Vencimentos
+            </h2>
+            <span id="badgeContasPendentes" class="text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded-full">0 a pagar</span>
+          </div>
+          <div id="listaProximasContas" class="space-y-3"></div>
+        </section>
+      </div>
+
+      <!-- ABA 2: RENDAS -->
+      <div id="abaRendas" class="space-y-5 hidden">
+        <div class="flex justify-between items-center px-1">
+          <div>
+            <h2 class="text-lg font-extrabold text-white">Entradas & Rendas</h2>
+            <p class="text-xs text-zinc-300">Recebimentos da família</p>
+          </div>
+          <button onclick="openModal('modalRenda')" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-md flex items-center gap-1">
+            <span>+ Nova Renda</span>
+          </button>
+        </div>
+        <div id="listaRendas" class="space-y-3.5"></div>
+      </div>
+
+      <!-- ABA 3: DESPESAS -->
+      <div id="abaDespesas" class="space-y-5 hidden">
+        <div class="flex justify-between items-center px-1">
+          <div>
+            <h2 class="text-lg font-extrabold text-white">Contas a Pagar</h2>
+            <p class="text-xs text-zinc-300">Gastos fixos e variáveis</p>
+          </div>
+          <button onclick="openModal('modalDespesa')" class="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-md flex items-center gap-1">
+            <span>+ Nova Conta</span>
+          </button>
+        </div>
+        <div id="listaDespesas" class="space-y-3.5"></div>
+      </div>
+    </main>
+
+    <nav class="fixed bottom-0 left-0 right-0 bg-zinc-800/95 backdrop-blur-lg border-t border-zinc-600/80 py-3 px-6 flex justify-around max-w-md mx-auto z-20">
+      <button id="btnAbaResumo" onclick="trocarAba('abaResumo')" class="flex flex-col items-center text-teal-400 font-bold text-[11px] gap-1">
+        <span class="text-base">📊</span>
+        <span>Resumo</span>
+      </button>
+      <button id="btnAbaRendas" onclick="trocarAba('abaRendas')" class="flex flex-col items-center text-zinc-400 hover:text-zinc-200 text-[11px] transition gap-1">
+        <span class="text-base">💵</span>
+        <span>Rendas</span>
+      </button>
+      <button id="btnAbaDespesas" onclick="trocarAba('abaDespesas')" class="flex flex-col items-center text-zinc-400 hover:text-zinc-200 text-[11px] transition gap-1">
+        <span class="text-base">💸</span>
+        <span>Contas</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- MODAL: Nova Renda -->
+  <div id="modalRenda" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-6 z-50">
+    <div class="bg-zinc-800 border border-zinc-600 w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-zinc-700 pb-3">
+        <h2 class="text-base font-extrabold text-white flex items-center gap-2"><span>💵</span> Cadastrar Renda</h2>
+        <button onclick="closeModal('modalRenda')" class="text-zinc-400 hover:text-white text-lg font-bold">✕</button>
+      </div>
+      <form onsubmit="salvarRenda(event)" class="space-y-4">
+        <div>
+          <label class="block text-[11px] font-bold text-zinc-300 uppercase mb-1.5">Pessoa / Familiar</label>
+          <input type="text" id="pessoaRenda" placeholder="Ex: Murilo, Maria..." required class="w-full bg-zinc-900 border border-zinc-600 text-white rounded-xl p-3.5 text-sm focus:outline-none focus:border-teal-500 transition">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-zinc-300 uppercase mb-1.5">Fonte / Descrição</label>
+          <input type="text" id="descRenda" placeholder="Ex: Salário, Freelance..." required class="w-full bg-zinc-900 border border-zinc-600 text-white rounded-xl p-3.5 text-sm focus:outline-none focus:border-teal-500 transition">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-zinc-300 uppercase mb-1.5">Valor (R$)</label>
+          <input type="number" id="valorRenda" step="0.01" placeholder="3000,00" required class="w-full bg-zinc-900 border border-zinc-600 text-emerald-400 font-extrabold rounded-xl p-3.5 text-sm focus:outline-none focus:border-teal-500 transition">
+        </div>
+        <div class="flex gap-2.5 pt-2">
+          <button type="button" onclick="closeModal('modalRenda')" class="w-1/2 bg-zinc-700 text-zinc-200 font-bold py-3.5 rounded-xl text-xs transition">Cancelar</button>
+          <button type="submit" class="w-1/2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold py-3.5 rounded-xl text-xs shadow-md transition">Salvar Renda</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Nova Despesa -->
+  <div id="modalDespesa" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-6 z-50">
+    <div class="bg-zinc-800 border border-zinc-600 w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-zinc-700 pb-3">
+        <h2 class="text-base font-extrabold text-white flex items-center gap-2"><span>💸</span> Cadastrar Conta</h2>
+        <button onclick="closeModal('modalDespesa')" class="text-zinc-400 hover:text-white text-lg font-bold">✕</button>
+      </div>
+      <form onsubmit="salvarDespesa(event)" class="space-y-4">
+        <div>
+          <label class="block text-[11px] font-bold text-zinc-300 uppercase mb-1.5">Nome da Conta / Item</label>
+          <input type="text" id="descDespesa" placeholder="Ex: Aluguel, Mercado, Luz..." required class="w-full bg-zinc-900 border border-zinc-600 text-white rounded-xl p-3.5 text-sm focus:outline-none focus:border-teal-500 transition">
+        </div>
+        <div class="grid grid-cols-2 gap-3.5">
+          <div>
+            <label class="block text-[11px] font-bold text-zinc-300 uppercase mb-1.5">Valor (R$)</label>
+            <input type="number" id="valorDespesa" step="0.01" placeholder="450,00" required class="w-full bg-zinc-900 border border-zinc-600 text-rose-400 font-extrabold rounded-xl p-3.5 text-sm focus:outline-none focus:border-teal-500 transition">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-zinc-300 uppercase mb-1.5">Vencimento</label>
+            <input type="date" id="vencimentoDespesa" required class="w-full bg-zinc-900 border border-zinc-600 text-white rounded-xl p-3.5 text-sm focus:outline-none focus:border-teal-500 transition">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3.5">
+          <div>
+            <label class="block text-[11px] font-bold text-zinc-300 uppercase mb-1.5">Responsável</label>
+            <input type="text" id="responsavelDespesa" placeholder="Ex: Todos, Murilo..." required class="w-full bg-zinc-900 border border-zinc-600 text-white rounded-xl p-3.5 text-sm focus:outline-none focus:border-teal-500 transition">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-zinc-300 uppercase mb-1.5">Categoria</label>
+            <select id="categoriaDespesa" class="w-full bg-zinc-900 border border-zinc-600 text-white rounded-xl p-3.5 text-sm focus:outline-none focus:border-teal-500 transition">
+              <option value="Moradia">Moradia</option>
+              <option value="Alimentação">Alimentação</option>
+              <option value="Utilidades">Luz / Água / Net</option>
+              <option value="Lazer">Lazer</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex gap-2.5 pt-2">
+          <button type="button" onclick="closeModal('modalDespesa')" class="w-1/2 bg-zinc-700 text-zinc-200 font-bold py-3.5 rounded-xl text-xs transition">Cancelar</button>
+          <button type="submit" class="w-1/2 bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold py-3.5 rounded-xl text-xs shadow-md transition">Salvar Conta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://zhedmqkayjztqlabwrna.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoZWRtcWtheWp6dHFsYWJ3cm5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2NjU1NzEsImV4cCI6MjEwNTI0MTU3MX0.pv8c9L2hluwxxtRSS4jPX_M501Y-5XerUWh-NYv0aXU';
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let modoAuth = 'login';
+    let rendas = [];
+    let despesas = [];
+
+    window.addEventListener('load', async () => {
+      const { data: { session } } = await _supabase.auth.getSession();
+      if (session) {
+        exibirApp(session.user);
+      }
+    });
+
+    // Converte o nome de usuário simples para o e-mail interno do Supabase
+    function usuarioParaEmail(usuario) {
+      const u = usuario.trim().toLowerCase().replace(/\s+/g, '');
+      return `${u}@familia.app`;
+    }
+     async function handleAuth(e) {
+     e.preventDefault();
+     const usuarioRaw = document.getElementById('authUsuario').value;
+     const email = usuarioParaEmail(usuarioRaw);
+     const password = document.getElementById('authSenha').value;
+
+     if (modoAuth === 'login') {
+     const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+     if (error) alert('Erro ao entrar: ' + error.message);
+     else exibirApp(data.user);
+     } else {
+    // Cadastra
+     const { data, error } = await _supabase.auth.signUp({ email, password });
+     if (error) {
+      alert('Erro ao cadastrar: ' + error.message);
+     } else {
+      // Faz o login imediato em seguida
+      const { data: logData, error: logError } = await _supabase.auth.signInWithPassword({ email, password });
+      if (logError) {
+        alert('Conta criada! Clique em Entrar.');
+      } else {
+        exibirApp(logData.user);
+      }
+    }
+  }
+}
+    
+
+    async function fazerLogout() {
+      await _supabase.auth.signOut();
+      document.getElementById('appContainer').classList.add('hidden');
+      document.getElementById('telaAuth').classList.remove('hidden');
+    }
+
+    function exibirApp(user) {
+      document.getElementById('telaAuth').classList.add('hidden');
+      document.getElementById('appContainer').classList.remove('hidden');
+      const nomeUsuario = user.email.split('@')[0];
+      document.getElementById('userBadge').innerText = '@' + nomeUsuario;
+      carregarDados();
+    }
+
+    async function carregarDados() {
+      const { data: dataRendas } = await _supabase.from('rendas').select('*');
+      const { data: dataDespesas } = await _supabase.from('despesas').select('*');
+
+      rendas = dataRendas || [];
+      despesas = dataDespesas || [];
+      renderizarTudo();
+    }
+
+    function renderizarResumo() {
+      const totalRendaVal = rendas.reduce((acc, r) => acc + parseFloat(r.valor), 0);
+      const totalGastosVal = despesas.reduce((acc, d) => acc + parseFloat(d.valor), 0);
+      const sobraVal = totalRendaVal - totalGastosVal;
+
+      document.getElementById('totalRenda').innerText = `R$ ${totalRendaVal.toFixed(2)}`;
+      document.getElementById('totalGastos').innerText = `R$ ${totalGastosVal.toFixed(2)}`;
+      document.getElementById('saldoSobra').innerText = `R$ ${sobraVal.toFixed(2)}`;
+
+      const badgeStatus = document.getElementById('badgeStatusSaldo');
+      if (sobraVal < 0) {
+        badgeStatus.className = 'text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 px-3 py-1 rounded-full';
+        badgeStatus.innerText = 'Negativo / Alerta';
+      } else if (sobraVal === 0) {
+        badgeStatus.className = 'text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-full';
+        badgeStatus.innerText = 'No Limite';
+      } else {
+        badgeStatus.className = 'text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full';
+        badgeStatus.innerText = 'Sobra Positiva';
+      }
+
+      const modoDivisao = document.getElementById('tipoDivisao').value;
+      const elDivisao = document.getElementById('listaDivisao');
+      elDivisao.innerHTML = '';
+
+      const rendasPorPessoa = {};
+      rendas.forEach(r => {
+        const nome = r.pessoa.trim();
+        rendasPorPessoa[nome] = (rendasPorPessoa[nome] || 0) + parseFloat(r.valor);
+      });
+
+      const pessoas = Object.keys(rendasPorPessoa);
+
+      if (pessoas.length === 0 || totalGastosVal === 0) {
+        elDivisao.innerHTML = `<p class="text-xs text-zinc-300 py-1">Cadastre rendas e contas para ver a divisão.</p>`;
+      } else {
+        pessoas.forEach(nome => {
+          let cotaParte = 0;
+          let percentual = 0;
+
+          if (modoDivisao === 'proporcional' && totalRendaVal > 0) {
+            percentual = (rendasPorPessoa[nome] / totalRendaVal) * 100;
+            cotaParte = totalGastosVal * (percentual / 100);
+          } else {
+            percentual = 100 / pessoas.length;
+            cotaParte = totalGastosVal / pessoas.length;
+          }
+
+          elDivisao.innerHTML += `
+            <div class="flex justify-between items-center border-b border-zinc-700/60 pb-2.5">
+              <div>
+                <p class="font-bold text-sm text-zinc-100">${nome}</p>
+                <p class="text-[11px] text-zinc-300 mt-0.5">Renda: R$ ${rendasPorPessoa[nome].toFixed(2)} (${percentual.toFixed(1)}%)</p>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-extrabold text-teal-400">Paga R$ ${cotaParte.toFixed(2)}</p>
+                <p class="text-[10px] text-zinc-300">das contas totais</p>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      const pendentes = despesas.filter(d => !d.pago);
+      document.getElementById('badgeContasPendentes').innerText = `${pendentes.length} pendentes`;
+      
+      const elProximas = document.getElementById('listaProximasContas');
+      elProximas.innerHTML = '';
+
+      if (pendentes.length === 0) {
+        elProximas.innerHTML = `<p class="text-xs text-zinc-300 py-1">Todas as contas estão em dia! 🎉</p>`;
+      } else {
+        pendentes.slice(0, 3).forEach(d => {
+          const [ano, mes, dia] = d.vencimento.split('-');
+          elProximas.innerHTML += `
+            <div class="flex justify-between items-center border-b border-zinc-700/60 pb-2">
+              <div>
+                <p class="font-semibold text-xs text-zinc-100">${d.descricao}</p>
+                <p class="text-[10px] text-zinc-300">Vence: ${dia}/${mes}</p>
+              </div>
+              <span class="text-rose-400 font-bold text-xs">R$ ${parseFloat(d.valor).toFixed(2)}</span>
+            </div>
+          `;
+        });
+      }
+    }
+
+    function renderizarRendas() {
+      const el = document.getElementById('listaRendas');
+      el.innerHTML = '';
+      if (rendas.length === 0) {
+        el.innerHTML = `<div class="text-center py-12 bg-zinc-800/80 rounded-3xl border border-dashed border-zinc-600 p-6"><span class="text-3xl">💵</span><p class="text-sm font-bold text-zinc-200 mt-2">Nenhuma renda cadastrada</p></div>`;
+        return;
+      }
+      rendas.forEach(r => {
+        el.innerHTML += `
+          <div class="bg-zinc-800/90 p-5 rounded-2xl border border-zinc-600/70 flex justify-between items-center shadow-md">
+            <div>
+              <p class="font-bold text-sm text-zinc-100">${r.pessoa}</p>
+              <p class="text-xs text-zinc-300 mt-0.5">${r.descricao}</p>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-extrabold text-emerald-400">R$ ${parseFloat(r.valor).toFixed(2)}</p>
+              <button onclick="excluirRenda(${r.id})" class="text-rose-400 hover:text-rose-300 text-xs font-semibold mt-1">Excluir</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function renderizarDespesas() {
+      const el = document.getElementById('listaDespesas');
+      el.innerHTML = '';
+      if (despesas.length === 0) {
+        el.innerHTML = `<div class="text-center py-12 bg-zinc-800/80 rounded-3xl border border-dashed border-zinc-600 p-6"><span class="text-3xl">💸</span><p class="text-sm font-bold text-zinc-200 mt-2">Nenhuma conta cadastrada</p></div>`;
+        return;
+      }
+      despesas.forEach(d => {
+        const [ano, mes, dia] = d.vencimento.split('-');
+        el.innerHTML += `
+          <div class="bg-zinc-800/90 p-5 rounded-2xl border border-zinc-600/70 space-y-3 shadow-md">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="font-bold text-sm text-zinc-100">${d.descricao}</p>
+                <p class="text-xs text-zinc-300 mt-1">Vence: <span class="font-semibold text-zinc-200">${dia}/${mes}/${ano}</span> • Resp: <span class="text-teal-300">${d.responsavel}</span></p>
+              </div>
+              <span class="font-bold text-sm ${d.pago ? 'text-zinc-400 line-through' : 'text-rose-400'}">R$ ${parseFloat(d.valor).toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between items-center pt-2.5 border-t border-zinc-700/60">
+              <button onclick="excluirDespesa(${d.id})" class="text-rose-400 hover:text-rose-300 text-xs font-bold px-1">Excluir</button>
+              <button onclick="alternarStatusDespesa(${d.id}, ${d.pago})" class="px-3.5 py-1.5 rounded-xl text-xs font-bold ${d.pago ? 'bg-zinc-700 text-zinc-300' : 'bg-emerald-950 text-emerald-300 border border-emerald-700/60 hover:bg-emerald-900'} transition">${d.pago ? '✓ Paga' : 'Marcar como Paga'}</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function renderizarTudo() { renderizarResumo(); renderizarRendas(); renderizarDespesas(); }
+
+    async function salvarRenda(e) {
+      e.preventDefault();
+      const pessoa = document.getElementById('pessoaRenda').value;
+      const descricao = document.getElementById('descRenda').value;
+      const valor = parseFloat(document.getElementById('valorRenda').value);
+
+      const { error } = await _supabase.from('rendas').insert([{ pessoa, descricao, valor }]);
+      if (error) alert('Erro ao salvar: ' + error.message);
+      else { closeModal('modalRenda'); e.target.reset(); carregarDados(); }
+    }
+
+    async function excluirRenda(id) {
+      if(confirm('Excluir esta renda?')) {
+        await _supabase.from('rendas').delete().eq('id', id);
+        carregarDados();
+      }
+    }
+
+    async function salvarDespesa(e) {
+      e.preventDefault();
+      const descricao = document.getElementById('descDespesa').value;
+      const valor = parseFloat(document.getElementById('valorDespesa').value);
+      const vencimento = document.getElementById('vencimentoDespesa').value;
+      const responsavel = document.getElementById('responsavelDespesa').value;
+      const categoria = document.getElementById('categoriaDespesa').value;
+
+      const { error } = await _supabase.from('despesas').insert([{ descricao, valor, vencimento, responsavel, categoria, pago: false }]);
+      if (error) alert('Erro ao salvar: ' + error.message);
+      else { closeModal('modalDespesa'); e.target.reset(); carregarDados(); }
+    }
+
+    async function alternarStatusDespesa(id, statusAtual) {
+      await _supabase.from('despesas').update({ pago: !statusAtual }).eq('id', id);
+      carregarDados();
+    }
+
+    async function excluirDespesa(id) {
+      if(confirm('Excluir esta conta?')) {
+        await _supabase.from('despesas').delete().eq('id', id);
+        carregarDados();
+      }
+    }
+
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('flex'); document.getElementById(id).classList.add('hidden'); }
+
+    function trocarAba(abaId) {
+      ['abaResumo', 'abaRendas', 'abaDespesas'].forEach(id => document.getElementById(id).classList.add('hidden'));
+      document.getElementById(abaId).classList.remove('hidden');
+      const abasMap = { 'abaResumo': 'btnAbaResumo', 'abaRendas': 'btnAbaRendas', 'abaDespesas': 'btnAbaDespesas' };
+      Object.values(abasMap).forEach(btnId => document.getElementById(btnId).className = 'flex flex-col items-center text-zinc-400 hover:text-zinc-200 text-[11px] transition gap-1');
+      document.getElementById(abasMap[abaId]).className = 'flex flex-col items-center text-teal-400 font-bold text-[11px] gap-1';
+    }
+  </script>
+  <!-- Rodapé / Assinatura do Desenvolvedor -->
+  <footer class="text-center py-6 pb-24 text-[10px] font-medium text-zinc-400/70 select-none">
+    Desenvolvedor: <span class="font-bold text-zinc-300">Murilo Andrade</span> • <span class="text-teal-400/80 font-semibold">v1</span>
+  </footer>
+
+</body>
+</html>
